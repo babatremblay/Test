@@ -1,0 +1,52 @@
+name: Deploy Python project to Azure Function App
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+    - name: Checkout GitHub Action
+      uses: actions/checkout@v3
+
+    - name: Get Next Version
+      id: semver
+      uses: ietf-tools/semver-action@v1
+      with:
+        token: ${{ github.token }}
+        branch: main
+        fallbackTag: 0.0.0
+        noVersionBumpBehavior: patch
+
+    - name: Create tag
+      uses: actions/github-script@v5
+      with:
+        script: |
+          github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: 'refs/tags/${{ steps.semver.outputs.next }}',
+            sha: context.sha
+          })
+
+    - name: Set Env
+      run: |
+        echo "ENV=dev" >> $GITHUB_ENV
+    - name: Set Deployment Parameter
+      run: |
+        echo "APP_NAME=function-app-new-dashboard-${ENV}" >> $GITHUB_ENV
+        echo "PUBLISH_PROFILE_SECRET=AZURE_FUNCTIONAPP_PUBLISH_PROFILE_${ENV^^}" >> $GITHUB_ENV
+        echo "ENV=${ENV}" >> $GITHUB_ENV
+
+    - name: Debug Parameters
+      run: |
+        echo "App Name: ${{ env.APP_NAME }}"
+        echo "Publish Profile Secret: ${{ env.PUBLISH_PROFILE_SECRET }}"
+        echo "Environment: ${{ env.ENV }}"
